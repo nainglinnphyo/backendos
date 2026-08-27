@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: backendos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: backendos
+      POSTGRES_PASSWORD: backendos
+      POSTGRES_DB: backendos
+    ports:
+      - "54329:5432"
+    volumes:
+      - backendos_pgdata:/var/lib/postgresql/data
+
+volumes:
+  backendos_pgdata:

@@ -1,0 +1,20 @@
+{
+  "name": "backendos",
+  "private": true,
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "pnpm@10.9.0",
+  "scripts": {
+    "build": "pnpm -r --filter=./packages/* build && pnpm -r --filter=./apps/* build",
+    "dev:api": "pnpm --filter @backendos/api dev",
+    "dev:dashboard": "pnpm --filter @backendos/dashboard dev",
+    "typecheck": "pnpm -r typecheck",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
