@@ -15,19 +15,18 @@ export class AdminApiError extends Error {
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const headers: Record<string, string> = { authorization: `Bearer ${ADMIN_KEY}` };
+  if (body !== undefined) headers["content-type"] = "application/json";
+
   const res = await fetch(`${API_URL}${path}`, {
     method,
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${ADMIN_KEY}`,
-    },
+    headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
     cache: "no-store",
   });
 
   const text = await res.text();
   const json = text ? JSON.parse(text) : null;
-
   if (!res.ok) {
     throw new AdminApiError(res.status, json?.error?.message ?? res.statusText, json?.error?.details);
   }

@@ -22,6 +22,16 @@ export async function buildApp() {
       reply.status(400).send({ error: { code: "VALIDATION_ERROR", message: "Invalid request body", details: err.issues } });
       return;
     }
+    // Framework-level errors (malformed JSON, empty body with a JSON content-type, payload too
+    // large, etc.) already carry the right client-error status - surface it instead of masking
+    // every non-ApiError as a generic 500.
+    const frameworkErr = err as { statusCode?: number; code?: string; message?: string };
+    if (typeof frameworkErr.statusCode === "number" && frameworkErr.statusCode >= 400 && frameworkErr.statusCode < 500) {
+      reply
+        .status(frameworkErr.statusCode)
+        .send({ error: { code: frameworkErr.code ?? "BAD_REQUEST", message: frameworkErr.message ?? "Bad request" } });
+      return;
+    }
     app.log.error(err);
     reply.status(500).send({ error: { code: "INTERNAL_ERROR", message: "Internal server error" } });
   });
