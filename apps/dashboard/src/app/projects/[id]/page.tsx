@@ -1,13 +1,10 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { adminApi } from "@/lib/api-client";
 import { takeReveal } from "@/lib/reveal-store";
-import { renameProjectAction, deleteProjectAction, createApiKeyAction, revokeApiKeyAction, regenerateApiKeyAction } from "@/lib/actions";
-import { CreateTableForm } from "@/components/create-table-form";
-import type { ApiKeySummary, ConnectionInfo, Project, ProjectStatus } from "@/lib/types";
-import type { TableSchema } from "@backendos/schema-engine";
+import type { ApiKeySummary, Project, ProjectStatus } from "@/lib/types";
+import { KeyIcon, SettingsIcon, TableIcon } from "@/components/icons";
 
-export default async function ProjectPage({
+export default async function ProjectOverviewPage({
   params,
   searchParams,
 }: {
@@ -21,19 +18,15 @@ export default async function ProjectPage({
   const project = await adminApi.get<Project>(`/admin/projects/${id}`).catch(() => null);
   if (!project) notFound();
 
-  const [apiKeys, connection, status, tables] = await Promise.all([
-    adminApi.get<ApiKeySummary[]>(`/admin/projects/${id}/api-keys`),
-    adminApi.get<ConnectionInfo>(`/admin/projects/${id}/connection`),
+  const [status, apiKeys] = await Promise.all([
     adminApi.get<ProjectStatus>(`/admin/projects/${id}/status`),
-    adminApi.get<TableSchema[]>(`/admin/projects/${id}/tables`),
+    adminApi.get<ApiKeySummary[]>(`/admin/projects/${id}/api-keys`),
   ]);
 
-  return (
-    <main>
-      <p>
-        <Link href="/">&larr; All projects</Link>
-      </p>
+  const activeKeys = apiKeys.filter((k) => !k.revokedAt).length;
 
+  return (
+    <div>
       {revealedKey && (
         <div className="banner banner-warn">
           <strong>Your new API key - copy it now, it won&apos;t be shown again:</strong>
@@ -41,107 +34,77 @@ export default async function ProjectPage({
         </div>
       )}
 
-      <header className="page-header">
-        <h1>{project.name}</h1>
-        <p className="muted mono">{project.url}</p>
-        <p className="muted">
-          Schema: {project.schemaName} · Status: {status.status} · Tables: {status.tableCount}
-        </p>
-      </header>
+      <div className="page-head">
+        <div>
+          <h1>{project.name}</h1>
+          <div className="row" style={{ marginTop: 6 }}>
+            <span className="badge badge-green">
+              <span className="badge-dot" /> {status.status}
+            </span>
+            <span className="pill">{project.url}</span>
+          </div>
+        </div>
+      </div>
 
-      <section className="card">
-        <h2>Settings</h2>
-        <form action={renameProjectAction.bind(null, id)} className="row">
-          <input name="name" defaultValue={project.name} required />
-          <button type="submit">Rename</button>
-        </form>
-        <form action={deleteProjectAction.bind(null, id)}>
-          <button type="submit" className="danger">
-            Delete project
-          </button>
-        </form>
-      </section>
+      <div className="stat-grid">
+        <div className="stat-card">
+          <div className="stat-card__label">Tables</div>
+          <div className="stat-card__value">{status.tableCount}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card__label">Active API keys</div>
+          <div className="stat-card__value">{activeKeys}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card__label">Isolation</div>
+          <div className="stat-card__value" style={{ fontSize: 14 }}>
+            Schema-per-project
+          </div>
+        </div>
+      </div>
 
-      <section className="card">
-        <h2>Connection info</h2>
-        <dl className="kv">
-          <dt>Isolation</dt>
-          <dd>{connection.isolation}</dd>
-          <dt>Schema</dt>
-          <dd className="mono">{connection.schemaName}</dd>
-          <dt>Host</dt>
-          <dd className="mono">
-            {connection.host}:{connection.port}
-          </dd>
-          <dt>Database</dt>
-          <dd className="mono">{connection.database}</dd>
-        </dl>
-        <p className="muted">{connection.note}</p>
-      </section>
+      <h3 style={{ marginTop: 0 }}>Quick links</h3>
+      <div className="quick-link-grid">
+        <a className="quick-link-card" href={`/projects/${id}/editor`}>
+          <span className="quick-link-card__icon">
+            <TableIcon />
+          </span>
+          <div>
+            <div className="quick-link-card__title">Table Editor</div>
+            <div className="quick-link-card__desc">Create and manage tables, columns, and constraints.</div>
+          </div>
+        </a>
+        <a className="quick-link-card" href={`/projects/${id}/api-keys`}>
+          <span className="quick-link-card__icon">
+            <KeyIcon />
+          </span>
+          <div>
+            <div className="quick-link-card__title">API Keys</div>
+            <div className="quick-link-card__desc">Generate, revoke, and rotate access keys.</div>
+          </div>
+        </a>
+        <a className="quick-link-card" href={`/projects/${id}/settings`}>
+          <span className="quick-link-card__icon">
+            <SettingsIcon />
+          </span>
+          <div>
+            <div className="quick-link-card__title">Settings</div>
+            <div className="quick-link-card__desc">Rename, view connection info, or delete this project.</div>
+          </div>
+        </a>
+      </div>
 
-      <section className="card">
-        <h2>API keys</h2>
-        <form action={createApiKeyAction.bind(null, id)} className="row">
-          <input name="name" placeholder="key name (optional)" />
-          <button type="submit">Generate key</button>
-        </form>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Key</th>
-              <th>Created</th>
-              <th>Last used</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {apiKeys.map((k) => (
-              <tr key={k.id}>
-                <td>{k.name}</td>
-                <td className="mono">{k.displayPrefix}...</td>
-                <td>{new Date(k.createdAt).toLocaleString()}</td>
-                <td>{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : "never"}</td>
-                <td>{k.revokedAt ? "revoked" : "active"}</td>
-                <td>
-                  {!k.revokedAt && (
-                    <div className="row">
-                      <form action={regenerateApiKeyAction.bind(null, id, k.id)}>
-                        <button type="submit">Regenerate</button>
-                      </form>
-                      <form action={revokeApiKeyAction.bind(null, id, k.id)}>
-                        <button type="submit" className="danger">
-                          Revoke
-                        </button>
-                      </form>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+      <h3>Connect from your app</h3>
+      <div className="card">
+        <pre className="mono" style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+          {`import { createBackendOS } from "./backendos-types";
 
-      <section>
-        <h2>Tables</h2>
-        <CreateTableForm projectId={id} />
-        {tables.length === 0 ? (
-          <p className="muted">No tables yet - create one above.</p>
-        ) : (
-          <ul className="list">
-            {tables.map((t) => (
-              <li key={t.name} className="card">
-                <Link href={`/projects/${id}/tables/${t.name}`}>
-                  <strong>{t.name}</strong>
-                </Link>
-                <div className="muted">{t.columns.length} columns</div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </main>
+const backendos = createBackendOS({
+  url: "${project.url}",
+  accessKey: process.env.BACKENDOS_ACCESS_KEY!,
+});`}
+        </pre>
+      </div>
+    </div>
   );
 }

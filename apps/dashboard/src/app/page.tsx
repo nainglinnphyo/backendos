@@ -2,42 +2,50 @@ import Link from "next/link";
 import { adminApi } from "@/lib/api-client";
 import { createProjectAction } from "@/lib/actions";
 import type { Project } from "@/lib/types";
+import { TableIcon } from "@/components/icons";
 
 export default async function HomePage() {
   const projects = await adminApi.get<Project[]>("/admin/projects");
 
   return (
-    <main>
-      <header className="page-header">
-        <h1>BackendOS</h1>
-        <p className="muted">Create a project, define tables, and get a type-safe API instantly.</p>
-      </header>
+    <div className="page-shell">
+      <div className="top-header">
+        <span className="brand-mark">
+          <span className="brand-mark__logo">B</span>
+          BackendOS
+        </span>
+      </div>
 
-      <section className="card">
+      <div className="page-head">
+        <div>
+          <h1>Projects</h1>
+          <p className="muted">Create a project, define tables, and get a type-safe API instantly.</p>
+        </div>
+      </div>
+
+      <div className="card">
         <h2>New project</h2>
         <form action={createProjectAction} className="row">
           <input name="name" placeholder="My App" required />
           <button type="submit">Create project</button>
         </form>
-      </section>
+      </div>
 
-      <section>
-        <h2>Projects</h2>
-        {projects.length === 0 ? (
-          <p className="muted">No projects yet - create one above.</p>
-        ) : (
-          <ul className="list">
-            {projects.map((p) => (
-              <li key={p.id} className="card">
-                <Link href={`/projects/${p.id}`}>
-                  <strong>{p.name}</strong>
-                </Link>
-                <div className="muted mono">{p.url}</div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </main>
+      {projects.length === 0 ? (
+        <div className="empty-state">No projects yet - create one above.</div>
+      ) : (
+        <div className="project-grid">
+          {projects.map((p) => (
+            <Link key={p.id} href={`/projects/${p.id}`} className="project-card">
+              <span className="project-card__icon">
+                <TableIcon width={18} height={18} />
+              </span>
+              <div className="project-card__name">{p.name}</div>
+              <div className="muted mono">{p.url}</div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

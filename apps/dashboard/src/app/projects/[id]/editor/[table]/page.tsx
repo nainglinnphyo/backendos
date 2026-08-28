@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { adminApi } from "@/lib/api-client";
 import type { TableSchema } from "@backendos/schema-engine";
@@ -40,17 +39,15 @@ export default async function TablePage({ params }: { params: Promise<{ id: stri
   if (!t) notFound();
 
   return (
-    <main>
-      <p>
-        <Link href={`/projects/${id}`}>&larr; back to project</Link>
-      </p>
+    <div>
+      <div className="page-head">
+        <div>
+          <h1 className="mono">{t.name}</h1>
+          <p className="muted">Primary key: {t.primaryKey.join(", ") || "none"}</p>
+        </div>
+      </div>
 
-      <header className="page-header">
-        <h1 className="mono">{t.name}</h1>
-        <p className="muted">Primary key: {t.primaryKey.join(", ") || "none"}</p>
-      </header>
-
-      <section className="card">
+      <div className="card">
         <h2>Rename / delete table</h2>
         <form action={renameTableAction.bind(null, id, table)} className="row">
           <input name="name" defaultValue={t.name} required />
@@ -61,9 +58,9 @@ export default async function TablePage({ params }: { params: Promise<{ id: stri
             Delete table
           </button>
         </form>
-      </section>
+      </div>
 
-      <section className="card">
+      <div className="card">
         <h2>Columns</h2>
         <table className="table">
           <thead>
@@ -72,8 +69,7 @@ export default async function TablePage({ params }: { params: Promise<{ id: stri
               <th>Type</th>
               <th>Nullable</th>
               <th>Default</th>
-              <th>PK</th>
-              <th>Unique</th>
+              <th>Flags</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -81,19 +77,29 @@ export default async function TablePage({ params }: { params: Promise<{ id: stri
             {t.columns.map((c) => (
               <tr key={c.name}>
                 <td className="mono">{c.name}</td>
-                <td>{c.udtName}</td>
+                <td>
+                  <span className="badge badge-gray">{c.udtName}</span>
+                </td>
                 <td>{c.isNullable ? "yes" : "no"}</td>
                 <td className="mono">{c.columnDefault ?? "-"}</td>
-                <td>{c.isPrimaryKey ? "✓" : ""}</td>
-                <td>{c.isUnique ? "✓" : ""}</td>
                 <td>
-                  <div className="row">
-                    <form action={renameColumnAction.bind(null, id, table, c.name)} className="row">
+                  <div className="row" style={{ marginBottom: 0 }}>
+                    {c.isPrimaryKey && <span className="badge badge-green">PK</span>}
+                    {c.isUnique && !c.isPrimaryKey && <span className="badge badge-gray">unique</span>}
+                  </div>
+                </td>
+                <td>
+                  <div className="row" style={{ marginBottom: 0 }}>
+                    <form action={renameColumnAction.bind(null, id, table, c.name)} className="row" style={{ marginBottom: 0 }}>
                       <input name="newName" placeholder="rename to" size={10} />
-                      <button type="submit">Rename</button>
+                      <button type="submit" className="secondary">
+                        Rename
+                      </button>
                     </form>
                     <form action={alterColumnNullableAction.bind(null, id, table, c.name, !c.isNullable)}>
-                      <button type="submit">{c.isNullable ? "Make NOT NULL" : "Make nullable"}</button>
+                      <button type="submit" className="secondary">
+                        {c.isNullable ? "Make NOT NULL" : "Make nullable"}
+                      </button>
                     </form>
                     <form action={dropColumnAction.bind(null, id, table, c.name)}>
                       <button type="submit" className="danger">
@@ -126,15 +132,15 @@ export default async function TablePage({ params }: { params: Promise<{ id: stri
           <input name="defaultExpr" placeholder="default (e.g. now())" />
           <button type="submit">Add column</button>
         </form>
-      </section>
+      </div>
 
-      <section className="card">
+      <div className="card">
         <h2>Unique constraints</h2>
         <ul className="list">
           {t.uniqueConstraints.map((u) => (
             <li key={u.name} className="row">
-              <span className="mono">{u.name}</span>
-              <span>({u.columns.join(", ")})</span>
+              <span className="pill">{u.name}</span>
+              <span className="muted">({u.columns.join(", ")})</span>
               <form action={dropConstraintAction.bind(null, id, table, u.name)}>
                 <button type="submit" className="danger">
                   Drop
@@ -147,15 +153,15 @@ export default async function TablePage({ params }: { params: Promise<{ id: stri
           <input name="columns" placeholder="columns (comma-separated)" required />
           <button type="submit">Add unique constraint</button>
         </form>
-      </section>
+      </div>
 
-      <section className="card">
+      <div className="card">
         <h2>Foreign keys</h2>
         <ul className="list">
           {t.foreignKeys.map((fk) => (
             <li key={fk.name} className="row">
-              <span className="mono">{fk.name}</span>
-              <span>
+              <span className="pill">{fk.name}</span>
+              <span className="muted">
                 ({fk.columns.join(", ")}) &rarr; {fk.referencedTable}({fk.referencedColumns.join(", ")})
               </span>
               <form action={dropConstraintAction.bind(null, id, table, fk.name)}>
@@ -178,17 +184,17 @@ export default async function TablePage({ params }: { params: Promise<{ id: stri
           </select>
           <button type="submit">Add foreign key</button>
         </form>
-      </section>
+      </div>
 
-      <section className="card">
+      <div className="card">
         <h2>Indexes</h2>
         <ul className="list">
           {t.indexes
             .filter((ix) => !ix.isPrimary)
             .map((ix) => (
               <li key={ix.name} className="row">
-                <span className="mono">{ix.name}</span>
-                <span>
+                <span className="pill">{ix.name}</span>
+                <span className="muted">
                   ({ix.columns.join(", ")}) {ix.isUnique ? "UNIQUE" : ""} - {ix.method}
                 </span>
                 <form action={dropIndexAction.bind(null, id, table, ix.name)}>
@@ -206,7 +212,7 @@ export default async function TablePage({ params }: { params: Promise<{ id: stri
           </label>
           <button type="submit">Create index</button>
         </form>
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }
