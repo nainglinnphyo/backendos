@@ -136,6 +136,57 @@ a:hover {
   margin-bottom: 20px;
 }
 
+/* ---------- Auth pages (login/signup) ---------- */
+
+.auth-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.auth-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 26px;
+}
+.auth-card .brand-mark {
+  margin-bottom: 24px;
+}
+.auth-card h1 {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+.auth-card .muted {
+  margin-bottom: 18px;
+}
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.auth-form label {
+  margin-top: 10px;
+  font-size: 12.5px;
+}
+.auth-form input {
+  width: 100%;
+}
+.auth-form button {
+  margin-top: 18px;
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+}
+.auth-card .switch-link {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 13px;
+}
+
 /* ---------- Project workspace (icon rail + section sidebar + main) ---------- */
 
 .workspace {

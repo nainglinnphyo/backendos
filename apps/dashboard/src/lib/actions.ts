@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { adminApi } from "./api-client";
+import { adminApi, AdminApiError } from "./api-client";
 import { stashReveal } from "./reveal-store";
 import type { Project } from "./types";
 
@@ -24,7 +24,15 @@ export async function createProjectAction(formData: FormData): Promise<void> {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) throw new Error("Project name is required");
 
-  const result = await adminApi.post<{ project: Project; apiKey: { key: string } }>("/admin/projects", { name });
+  let result: { project: Project; apiKey: { key: string } };
+  try {
+    result = await adminApi.post<{ project: Project; apiKey: { key: string } }>("/admin/projects", { name });
+  } catch (err) {
+    if (err instanceof AdminApiError && err.status === 403) {
+      redirect(`/?error=${encodeURIComponent(err.message)}`);
+    }
+    throw err;
+  }
   const token = stashReveal(result.apiKey.key);
   revalidatePath("/");
   redirect(`/projects/${result.project.id}?reveal=${token}`);

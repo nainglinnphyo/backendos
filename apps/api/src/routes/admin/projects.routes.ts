@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { createSchema, dropSchema } from "@backendos/schema-engine";
-import { requireAdmin } from "../../middleware/admin-auth.js";
+import { requireUser } from "../../middleware/require-user.js";
 import * as Projects from "../../repositories/projects.repo.js";
 import * as ApiKeys from "../../repositories/api-keys.repo.js";
 import { withTransaction } from "../../db/pool.js";
@@ -14,16 +14,25 @@ const createProjectSchema = z.object({ name: z.string().min(1).max(100) });
 const renameProjectSchema = z.object({ name: z.string().min(1).max(100) });
 
 export async function projectsRoutes(app: FastifyInstance) {
-  app.addHook("preHandler", requireAdmin);
+  app.addHook("preHandler", requireUser);
 
   app.post("/admin/projects", async (req, reply) => {
+    const user = req.user!;
     const body = createProjectSchema.parse(req.body);
+
+    const currentCount = await Projects.countProjectsForOwner(user.id);
+    if (currentCount >= user.maxProjects) {
+      throw Errors.forbidden(
+        `Project limit reached (${user.maxProjects} max). Delete an existing project before creating another.`,
+      );
+    }
+
     const slug = await Projects.generateUniqueSlug(slugify(body.name));
     const schemaName = generateSchemaName();
 
     await withTransaction((client) => createSchema(client, schemaName));
 
-    const project = await Projects.insertProject(body.name, slug, schemaName);
+    const project = await Projects.insertProject(body.name, slug, schemaName, user.id);
     const { summary, plaintext } = await ApiKeys.createApiKey(project.id, "default");
 
     reply.code(201);
@@ -39,11 +48,11 @@ export async function projectsRoutes(app: FastifyInstance) {
     };
   });
 
-  app.get("/admin/projects", async () => ({ data: await Projects.listProjects() }));
+  app.get("/admin/projects", async (req) => ({ data: await Projects.listProjectsForOwner(req.user!.id) }));
 
   app.get("/admin/projects/:id", async (req) => {
     const { id } = req.params as { id: string };
-    const project = await Projects.getProjectById(id);
+    const project = await Projects.getProjectForOwner(id, req.user!.id);
     if (!project) throw Errors.notFound("Project not found");
     return { data: project };
   });
@@ -51,14 +60,15 @@ export async function projectsRoutes(app: FastifyInstance) {
   app.patch("/admin/projects/:id", async (req) => {
     const { id } = req.params as { id: string };
     const body = renameProjectSchema.parse(req.body);
+    const existing = await Projects.getProjectForOwner(id, req.user!.id);
+    if (!existing) throw Errors.notFound("Project not found");
     const project = await Projects.renameProject(id, body.name);
-    if (!project) throw Errors.notFound("Project not found");
     return { data: project };
   });
 
   app.delete("/admin/projects/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
-    const project = await Projects.getProjectById(id);
+    const project = await Projects.getProjectForOwner(id, req.user!.id);
     if (!project) throw Errors.notFound("Project not found");
 
     await withTransaction((client) => dropSchema(client, project.schemaName));
@@ -71,7 +81,7 @@ export async function projectsRoutes(app: FastifyInstance) {
 
   app.get("/admin/projects/:id/status", async (req) => {
     const { id } = req.params as { id: string };
-    const project = await Projects.getProjectById(id);
+    const project = await Projects.getProjectForOwner(id, req.user!.id);
     if (!project) throw Errors.notFound("Project not found");
     const schema = await getProjectSchema(project.schemaName);
     return {
@@ -85,7 +95,7 @@ export async function projectsRoutes(app: FastifyInstance) {
 
   app.get("/admin/projects/:id/connection", async (req) => {
     const { id } = req.params as { id: string };
-    const project = await Projects.getProjectById(id);
+    const project = await Projects.getProjectForOwner(id, req.user!.id);
     if (!project) throw Errors.notFound("Project not found");
 
     const dbUrl = new URL(config.databaseUrl);

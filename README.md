@@ -3,8 +3,10 @@
 A developer-friendly Postgres backend: define tables from a dashboard (or the API), and get an
 automatic CRUD API plus a fully type-safe TypeScript client generated from your real schema.
 
-v1 scope is deliberately database-only - no auth, storage, file uploads, user management, or
-social login. Every request is authenticated by a single project-level API key.
+v1 scope is deliberately database-only - no storage, file uploads, or social login, and no
+auth-as-a-service for *your* app's end users. Every data-plane request is authenticated by a
+single project-level API key. (The dashboard itself does have real accounts - see "Dashboard
+accounts" below - that's about who can manage projects, not your projects' own users.)
 
 ```
 BackendOS Dashboard → Create Project → Define Tables → BackendOS generates API + Types
@@ -39,8 +41,9 @@ cp apps/dashboard/.env.example apps/dashboard/.env.local
 pnpm dev:dashboard             # http://localhost:3100 (see apps/dashboard/package.json)
 ```
 
-Open the dashboard, create a project, add a `users` table. The dashboard shows the generated
-Project URL and a one-time API key right after creation - copy it, you won't see it again.
+Open the dashboard, sign up for an account (`/signup` - just email + password, no invite needed),
+then create a project and add a `users` table. The dashboard shows the generated Project URL and
+a one-time API key right after creation - copy it, you won't see it again.
 
 ### Using the generated client in your own app
 
@@ -112,17 +115,32 @@ timestamps as ISO strings; the generated client ships a small runtime schema des
 dashboard shows is informational only. This keeps the API-key model as the single enforced
 boundary instead of a second, easier-to-misuse one.
 
-**Admin API auth is a single operator secret** (`BACKENDOS_ADMIN_KEY`), not end-user auth - it
-exists only so `/admin/*` (project + table management) isn't wide open. Real multi-user auth for
-the dashboard itself is out of scope for v1, same as end-user auth for projects.
+**The dashboard has its own real accounts, separate from project API keys.** Signing into the
+BackendOS dashboard (`/signup`, `/login`) is a normal email/password account with a server-side
+session (opaque token, sha256-hashed at rest, 30-day expiry) - this is who's allowed to *manage*
+projects, analogous to logging into supabase.com itself. It's unrelated to a project's own API
+key, which just identifies that project for data-plane requests and has nothing to do with the
+dashboard. Every project has an `owner_id`; free accounts are capped at 3 projects
+(`users.max_projects`), enforced server-side on create. This is still not end-user auth *for
+projects* (i.e. BackendOS itself doesn't offer an auth-as-a-service product to your app's users
+yet) - that part of the original scope is unchanged.
 
 ## API reference (short version)
 
-Admin API (`Authorization: Bearer <BACKENDOS_ADMIN_KEY>`):
+Auth (no session required for signup/login):
 
 | Method & path | Does |
 |---|---|
-| `POST /admin/projects` | Create a project (also creates its schema + first API key) |
+| `POST /auth/signup` | `{ email, password }` → creates an account + session token |
+| `POST /auth/login` | `{ email, password }` → session token |
+| `POST /auth/logout` | Invalidates the current session |
+| `GET /auth/me` | Current user + project count (session required) |
+
+Admin API (`Authorization: Bearer <session token>`, scoped to the signed-in user's own projects):
+
+| Method & path | Does |
+|---|---|
+| `POST /admin/projects` | Create a project (also creates its schema + first API key); 403 past the account's project limit |
 | `GET /admin/projects` / `/:id` | List / view projects |
 | `PATCH /admin/projects/:id` | Rename |
 | `DELETE /admin/projects/:id` | Delete (drops the schema) |
@@ -150,6 +168,6 @@ contains, startsWith, endsWith } }`, composable with `AND` / `OR` / `NOT`.
 
 ## What's not built (by design, per v1 scope)
 
-Authentication, storage/file uploads, user management, and social login are explicitly out of
-scope for this version - see the isolation/API-key notes above for how projects stay separated
-without them.
+Storage/file uploads, social login, and auth-as-a-service *for your app's own users* are
+explicitly out of scope for this version. (Dashboard accounts for managing BackendOS projects
+themselves - signup/login/sessions/per-account limits - are in, described above.)

@@ -1,7 +1,9 @@
 import "server-only";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { SESSION_COOKIE } from "./session-cookie";
 
 const API_URL = (process.env.BACKENDOS_API_URL ?? "http://localhost:8787").replace(/\/+$/, "");
-const ADMIN_KEY = process.env.BACKENDOS_ADMIN_KEY ?? "dev-admin-key";
 
 export class AdminApiError extends Error {
   status: number;
@@ -15,7 +17,11 @@ export class AdminApiError extends Error {
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const headers: Record<string, string> = { authorization: `Bearer ${ADMIN_KEY}` };
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+
+  const headers: Record<string, string> = {};
+  if (token) headers.authorization = `Bearer ${token}`;
   if (body !== undefined) headers["content-type"] = "application/json";
 
   const res = await fetch(`${API_URL}${path}`, {
@@ -24,6 +30,11 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     body: body !== undefined ? JSON.stringify(body) : undefined,
     cache: "no-store",
   });
+
+  // Session missing/expired server-side - bounce to login rather than showing a raw 401.
+  if (res.status === 401) {
+    redirect("/login");
+  }
 
   const text = await res.text();
   const json = text ? JSON.parse(text) : null;

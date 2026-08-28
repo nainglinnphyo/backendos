@@ -4,7 +4,7 @@ import path from "node:path";
 import { controlPool } from "./pool.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const MIGRATIONS = ["0001_init.sql"];
+const MIGRATIONS = ["0001_init.sql", "0002_auth.sql"];
 
 /** Applies the (idempotent) control-plane migrations. Safe to run on every boot. */
 export async function runMigrations(): Promise<void> {

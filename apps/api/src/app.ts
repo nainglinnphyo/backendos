@@ -3,6 +3,7 @@ import cors from "@fastify/cors";
 import { ZodError } from "zod";
 import { ApiError } from "./lib/errors.js";
 import { healthRoutes } from "./routes/health.routes.js";
+import { authRoutes } from "./routes/auth.routes.js";
 import { projectsRoutes } from "./routes/admin/projects.routes.js";
 import { apiKeysRoutes } from "./routes/admin/api-keys.routes.js";
 import { tablesRoutes } from "./routes/admin/tables.routes.js";
@@ -37,6 +38,7 @@ export async function buildApp() {
   });
 
   await app.register(healthRoutes);
+  await app.register(authRoutes);
   await app.register(projectsRoutes);
   await app.register(apiKeysRoutes);
   await app.register(tablesRoutes);

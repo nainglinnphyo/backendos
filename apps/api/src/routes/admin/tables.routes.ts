@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import * as ddl from "@backendos/schema-engine";
 import type { DatabaseSchema } from "@backendos/schema-engine";
-import { requireAdmin } from "../../middleware/admin-auth.js";
+import { requireUser } from "../../middleware/require-user.js";
 import * as Projects from "../../repositories/projects.repo.js";
 import { withTransaction } from "../../db/pool.js";
 import { Errors, fromPgError } from "../../lib/errors.js";
@@ -86,8 +86,8 @@ const indexInputSchema = z.object({
   method: z.enum(["btree", "gin", "gist", "hash"]).optional(),
 });
 
-async function loadProject(id: string): Promise<Project> {
-  const project = await Projects.getProjectById(id);
+async function loadProject(id: string, ownerId: string): Promise<Project> {
+  const project = await Projects.getProjectForOwner(id, ownerId);
   if (!project) throw Errors.notFound("Project not found");
   return project;
 }
@@ -110,23 +110,23 @@ async function mutateAndReload(project: Project, tableName: string, fn: (client:
 }
 
 export async function tablesRoutes(app: FastifyInstance) {
-  app.addHook("preHandler", requireAdmin);
+  app.addHook("preHandler", requireUser);
 
   app.get("/admin/projects/:id/tables", async (req) => {
-    const project = await loadProject((req.params as { id: string }).id);
+    const project = await loadProject((req.params as { id: string }).id, req.user!.id);
     const schema = await refreshProjectSchema(project.schemaName);
     return { data: schema.tables };
   });
 
   app.get("/admin/projects/:id/tables/:table", async (req) => {
     const { id, table } = req.params as { id: string; table: string };
-    const project = await loadProject(id);
+    const project = await loadProject(id, req.user!.id);
     const schema = await getProjectSchema(project.schemaName);
     return { data: findTableOrThrow(schema, table) };
   });
 
   app.post("/admin/projects/:id/tables", async (req, reply) => {
-    const project = await loadProject((req.params as { id: string }).id);
+    const project = await loadProject((req.params as { id: string }).id, req.user!.id);
     const input = createTableSchema.parse(req.body);
     const table = await mutateAndReload(project, input.name, (client) => ddl.createTable(client, project.schemaName, input));
     reply.code(201);
@@ -135,7 +135,7 @@ export async function tablesRoutes(app: FastifyInstance) {
 
   app.patch("/admin/projects/:id/tables/:table", async (req) => {
     const { id, table } = req.params as { id: string; table: string };
-    const project = await loadProject(id);
+    const project = await loadProject(id, req.user!.id);
     const body = renameSchema.parse(req.body);
     const updated = await mutateAndReload(project, body.name, (client) => ddl.renameTable(client, project.schemaName, table, body.name));
     return { data: updated };
@@ -143,7 +143,7 @@ export async function tablesRoutes(app: FastifyInstance) {
 
   app.delete("/admin/projects/:id/tables/:table", async (req, reply) => {
     const { id, table } = req.params as { id: string; table: string };
-    const project = await loadProject(id);
+    const project = await loadProject(id, req.user!.id);
     try {
       await withTransaction((client) => ddl.dropTable(client, project.schemaName, table));
     } catch (err) {
@@ -156,7 +156,7 @@ export async function tablesRoutes(app: FastifyInstance) {
 
   app.post("/admin/projects/:id/tables/:table/columns", async (req, reply) => {
     const { id, table } = req.params as { id: string; table: string };
-    const project = await loadProject(id);
+    const project = await loadProject(id, req.user!.id);
     const input = createColumnSchema.parse(req.body);
     const updated = await mutateAndReload(project, table, (client) => ddl.addColumn(client, project.schemaName, table, input));
     reply.code(201);
@@ -165,7 +165,7 @@ export async function tablesRoutes(app: FastifyInstance) {
 
   app.patch("/admin/projects/:id/tables/:table/columns/:column", async (req) => {
     const { id, table, column } = req.params as { id: string; table: string; column: string };
-    const project = await loadProject(id);
+    const project = await loadProject(id, req.user!.id);
     const input = alterColumnSchema.parse(req.body);
     const updated = await mutateAndReload(project, input.newName ?? table, (client) =>
       ddl.alterColumn(client, project.schemaName, table, column, input),
@@ -175,14 +175,14 @@ export async function tablesRoutes(app: FastifyInstance) {
 
   app.delete("/admin/projects/:id/tables/:table/columns/:column", async (req) => {
     const { id, table, column } = req.params as { id: string; table: string; column: string };
-    const project = await loadProject(id);
+    const project = await loadProject(id, req.user!.id);
     const updated = await mutateAndReload(project, table, (client) => ddl.dropColumn(client, project.schemaName, table, column));
     return { data: updated };
   });
 
   app.post("/admin/projects/:id/tables/:table/unique-constraints", async (req, reply) => {
     const { id, table } = req.params as { id: string; table: string };
-    const project = await loadProject(id);
+    const project = await loadProject(id, req.user!.id);
     const input = uniqueConstraintSchema.parse(req.body);
     const updated = await mutateAndReload(project, table, (client) => ddl.addUniqueConstraint(client, project.schemaName, table, input));
     reply.code(201);
@@ -191,7 +191,7 @@ export async function tablesRoutes(app: FastifyInstance) {
 
   app.post("/admin/projects/:id/tables/:table/foreign-keys", async (req, reply) => {
     const { id, table } = req.params as { id: string; table: string };
-    const project = await loadProject(id);
+    const project = await loadProject(id, req.user!.id);
     const input = foreignKeySchema.parse(req.body);
     const updated = await mutateAndReload(project, table, (client) => ddl.addForeignKey(client, project.schemaName, table, input));
     reply.code(201);
@@ -200,14 +200,14 @@ export async function tablesRoutes(app: FastifyInstance) {
 
   app.delete("/admin/projects/:id/tables/:table/constraints/:name", async (req) => {
     const { id, table, name } = req.params as { id: string; table: string; name: string };
-    const project = await loadProject(id);
+    const project = await loadProject(id, req.user!.id);
     const updated = await mutateAndReload(project, table, (client) => ddl.dropConstraint(client, project.schemaName, table, name));
     return { data: updated };
   });
 
   app.post("/admin/projects/:id/tables/:table/indexes", async (req, reply) => {
     const { id, table } = req.params as { id: string; table: string };
-    const project = await loadProject(id);
+    const project = await loadProject(id, req.user!.id);
     const input = indexInputSchema.parse(req.body);
     const updated = await mutateAndReload(project, table, (client) => ddl.createIndex(client, project.schemaName, table, input));
     reply.code(201);
@@ -216,7 +216,7 @@ export async function tablesRoutes(app: FastifyInstance) {
 
   app.delete("/admin/projects/:id/tables/:table/indexes/:name", async (req) => {
     const { id, table, name } = req.params as { id: string; table: string; name: string };
-    const project = await loadProject(id);
+    const project = await loadProject(id, req.user!.id);
     const updated = await mutateAndReload(project, table, (client) => ddl.dropIndex(client, project.schemaName, name));
     return { data: updated };
   });

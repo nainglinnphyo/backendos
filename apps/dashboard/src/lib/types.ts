@@ -5,8 +5,17 @@ export interface Project {
   url: string;
   schemaName: string;
   status: string;
+  ownerId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CurrentUser {
+  id: string;
+  email: string;
+  maxProjects: number;
+  projectCount: number;
+  createdAt: string;
 }
 
 export interface ApiKeySummary {
