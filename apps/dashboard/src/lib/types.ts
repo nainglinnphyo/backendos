@@ -41,3 +41,12 @@ export interface ProjectStatus {
   tableCount: number;
   lastIntrospectedAt: string;
 }
+
+export type RowValue = string | number | boolean | null;
+
+export interface TableRows {
+  rows: Record<string, RowValue>[];
+  total: number;
+  limit: number;
+  offset: number;
+}

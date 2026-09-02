@@ -14,6 +14,7 @@ import {
   renameColumnAction,
   renameTableAction,
 } from "@/lib/actions";
+import { TableSubNav } from "@/components/table-subnav";
 
 const COLUMN_TYPES = [
   "uuid",
@@ -46,6 +47,8 @@ export default async function TablePage({ params }: { params: Promise<{ id: stri
           <p className="muted">Primary key: {t.primaryKey.join(", ") || "none"}</p>
         </div>
       </div>
+
+      <TableSubNav projectId={id} table={table} active="schema" />
 
       <div className="card">
         <h2>Rename / delete table</h2>

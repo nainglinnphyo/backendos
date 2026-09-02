@@ -7,6 +7,7 @@ import { authRoutes } from "./routes/auth.routes.js";
 import { projectsRoutes } from "./routes/admin/projects.routes.js";
 import { apiKeysRoutes } from "./routes/admin/api-keys.routes.js";
 import { tablesRoutes } from "./routes/admin/tables.routes.js";
+import { tableDataRoutes } from "./routes/admin/table-data.routes.js";
 import { dataRoutes } from "./routes/data/data.routes.js";
 
 export async function buildApp() {
@@ -42,6 +43,7 @@ export async function buildApp() {
   await app.register(projectsRoutes);
   await app.register(apiKeysRoutes);
   await app.register(tablesRoutes);
+  await app.register(tableDataRoutes);
   await app.register(dataRoutes);
 
   return app;

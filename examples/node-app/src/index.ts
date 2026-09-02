@@ -46,8 +46,8 @@ async function main() {
   console.log("count: total conversations");
   console.log(await backendos.conversations.count(), "\n");
 
-  console.log("cleanup: delete the conversation");
-  await backendos.conversations.delete({ where: { id: convo.id } });
+  // console.log("cleanup: delete the conversation");
+  // await backendos.conversations.delete({ where: { id: convo.id } });
   console.log("done.");
 }
 

@@ -182,3 +182,11 @@ export async function dropIndexAction(projectId: string, table: string, name: st
   await adminApi.delete(`/admin/projects/${projectId}/tables/${table}/indexes/${name}`);
   revalidateProject(projectId);
 }
+
+// ---- Row data ----
+
+export async function deleteRowAction(projectId: string, table: string, formData: FormData): Promise<void> {
+  const where = JSON.parse(String(formData.get("where") ?? "{}"));
+  await adminApi.post(`/admin/projects/${projectId}/tables/${table}/rows/delete`, { where });
+  revalidatePath(`/projects/${projectId}/editor/${table}/data`);
+}
