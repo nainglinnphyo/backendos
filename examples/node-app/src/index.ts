@@ -12,49 +12,42 @@ if (!process.env.BACKENDOS_ACCESS_KEY) {
 }
 
 const backendos = createBackendOS({
-  url: "http://localhost:8787/p/proj1",
+  url: "http://localhost:8787/p/room-chat",
   accessKey: process.env.BACKENDOS_ACCESS_KEY,
 });
 
 async function main() {
-  console.log("create: a new user");
-  const user = await backendos.users.create({
-    data: { name: "Naing", email: `naing+${Date.now()}@example.com`, age: 30 },
+  console.log("create: a new conversation");
+  const convo = await backendos.conversations.create({
+    data: { name: `General ${Date.now()}`, userCount: 3 },
   });
-  console.log(user, "\n");
+  console.log(convo, "\n");
 
-  console.log("create: a post for that user");
-  const post = await backendos.posts.create({
-    data: { userId: user.id, title: "Hello BackendOS", content: "Posted from a plain Node.js script." },
-  });
-  console.log(post, "\n");
-
-  console.log("findMany: adults, newest first, limit 20");
-  const adults = await backendos.users.findMany({
-    where: { age: { gte: 18 } },
-    orderBy: { createdAt: "desc" },
+  console.log("findMany: busiest conversations first, limit 20");
+  const busiest = await backendos.conversations.findMany({
+    where: { userCount: { gte: 1 } },
+    orderBy: { userCount: "desc" },
     limit: 20,
   });
-  console.log(adults, "\n");
+  console.log(busiest, "\n");
 
-  console.log("findUnique: by email");
-  const found = await backendos.users.findUnique({ where: { email: user.email } });
+  console.log("findUnique: by id");
+  const found = await backendos.conversations.findUnique({ where: { id: convo.id } });
   console.log(found, "\n");
 
   console.log("findMany: field selection (only id + name come back)");
-  const idsAndNames = await backendos.users.findMany({ select: ["id", "name"] });
+  const idsAndNames = await backendos.conversations.findMany({ select: ["id", "name"] });
   console.log(idsAndNames, "\n");
 
-  console.log("update: happy birthday");
-  const [updated] = await backendos.users.update({ where: { id: user.id }, data: { age: 31 } });
+  console.log("update: someone joined");
+  const [updated] = await backendos.conversations.update({ where: { id: convo.id }, data: { userCount: 4 } });
   console.log(updated, "\n");
 
-  console.log("count: total users");
-  console.log(await backendos.users.count(), "\n");
+  console.log("count: total conversations");
+  console.log(await backendos.conversations.count(), "\n");
 
-  console.log("cleanup: delete the post, then the user");
-  await backendos.posts.delete({ where: { id: post.id } });
-  await backendos.users.delete({ where: { id: user.id } });
+  console.log("cleanup: delete the conversation");
+  await backendos.conversations.delete({ where: { id: convo.id } });
   console.log("done.");
 }
 

@@ -1,5 +1,5 @@
 {
-  "url": "http://localhost:8787/p/proj1",
+  "url": "http://localhost:8787/p/room-chat",
   "output": "./backendos-types.ts",
   "accessKeyEnv": "BACKENDOS_ACCESS_KEY"
 }
