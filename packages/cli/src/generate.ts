@@ -11,6 +11,12 @@ export interface GenerateOptions {
 }
 
 export async function runGenerate(opts: GenerateOptions): Promise<string> {
+  try {
+    process.loadEnvFile();
+  } catch {
+    // no .env file in the current directory - assume the access key is set another way
+  }
+
   const config = opts.url ? { url: opts.url, output: opts.output } : await loadConfig(opts.configPath);
 
   const url = (opts.url ?? config.url).replace(/\/+$/, "");
